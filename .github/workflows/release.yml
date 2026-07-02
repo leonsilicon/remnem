@@ -46,13 +46,32 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Bump version (main + all npm sub-packages)
         run: |
-          # Bump the root package.json without creating npm's own tag/commit.
-          NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
-          NEW_VERSION=${NEW_VERSION#v}
+          # Bump the root package.json without creating npm's own tag/commit and
+          # WITHOUT running lifecycle scripts. `--ignore-scripts` is essential:
+          # this package has a `version` npm script (`napi version`), which npm
+          # would otherwise run during `npm version` and print `> ...` lines to
+          # stdout, corrupting the captured value.
+          npm version ${{ inputs.bump }} --no-git-tag-version --ignore-scripts >/dev/null
+          # Read the bumped version straight from package.json (robust — does not
+          # depend on npm's stdout format).
+          NEW_VERSION=$(node -p "require('./package.json').version")
           echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-          # `napi version` rewrites every npm/* sub-package version and the main
-          # package's optionalDependencies to match the root version.
+          echo "Bumped to $NEW_VERSION"
+          # `napi version` rewrites every npm/* sub-package's own version to
+          # match the root version.
           bunx napi version
+          # `napi version` does NOT touch the main package's optionalDependencies
+          # ranges, so sync those to the new version too — otherwise the published
+          # main package would depend on the previous version of each platform
+          # package and fail to install.
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("./package.json", "utf8"));
+            for (const dep of Object.keys(pkg.optionalDependencies ?? {})) {
+              pkg.optionalDependencies[dep] = pkg.version;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(pkg, null, 2) + "\n");
+          '
       - name: Commit and push
         run: |
           git add -A
