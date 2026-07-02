@@ -1,0 +1,187 @@
+#!/usr/bin/env node
+"use strict";
+
+const { clean } = require("../index.js");
+
+const HELP = `rnmn — delete every nested node_modules, fast
+
+Usage:
+  rnmn [path] [options]
+
+Arguments:
+  path                 Project root to clean (default: current directory)
+
+Options:
+  -n, --dry-run        List what would be deleted; delete nothing
+      --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
+      --json           Print the raw result as JSON
+  -y, --yes            Skip the confirmation prompt
+  -h, --help           Show this help
+
+Finds every node_modules directory under <path> (root + all workspace packages
++ any nested ones), using the same workspace resolution as bun / pnpm to report
+the layout, then removes them in parallel.
+`;
+
+function parseArgs(argv) {
+  const opts = {
+    root: undefined,
+    dryRun: false,
+    measure: true,
+    json: false,
+    yes: false,
+    help: false,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    switch (arg) {
+      case "-h":
+      case "--help":
+        opts.help = true;
+        break;
+      case "-n":
+      case "--dry-run":
+        opts.dryRun = true;
+        break;
+      case "--no-measure":
+        opts.measure = false;
+        break;
+      case "--measure":
+        opts.measure = true;
+        break;
+      case "--json":
+        opts.json = true;
+        break;
+      case "-y":
+      case "--yes":
+        opts.yes = true;
+        break;
+      default:
+        if (arg.startsWith("-")) {
+          process.stderr.write(`rnmn: unknown option ${arg}\n\n${HELP}`);
+          process.exit(2);
+        }
+        if (opts.root !== undefined) {
+          process.stderr.write(`rnmn: unexpected extra argument ${arg}\n`);
+          process.exit(2);
+        }
+        opts.root = arg;
+    }
+  }
+  return opts;
+}
+
+function formatBytes(n) {
+  const bytes = typeof n === "bigint" ? Number(n) : n;
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** exp;
+  return `${value.toFixed(value >= 10 || exp === 0 ? 0 : 1)} ${units[exp]}`;
+}
+
+function relativizePath(root, p) {
+  if (p === root) return ".";
+  if (p.startsWith(root + "/")) return p.slice(root.length + 1);
+  return p;
+}
+
+// Confirmation prompt (synchronous) so a bare `rnmn` in a real repo can't nuke
+// node_modules by a stray keystroke. Skipped with -y, in --dry-run, or when not
+// attached to a TTY (CI / piped).
+function confirm(question) {
+  if (!process.stdin.isTTY) return true;
+  const fs = require("fs");
+  process.stdout.write(question);
+  const buf = Buffer.alloc(64);
+  let bytesRead = 0;
+  try {
+    bytesRead = fs.readSync(0, buf, 0, buf.length, null);
+  } catch {
+    return false;
+  }
+  const answer = buf.toString("utf8", 0, bytesRead).trim().toLowerCase();
+  return answer === "y" || answer === "yes";
+}
+
+function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  if (opts.help) {
+    process.stdout.write(HELP);
+    return;
+  }
+
+  // Phase 1: dry-run scan so we can show the user exactly what will go, then
+  // (unless -y / non-TTY) confirm before the real deletion.
+  const scan = clean({ root: opts.root, dryRun: true, measure: opts.measure });
+
+  const kindLabel =
+    scan.workspaceKind === "none"
+      ? "no workspace config"
+      : `${scan.workspaceKind} workspace (${scan.workspacePackages.length} package${
+          scan.workspacePackages.length === 1 ? "" : "s"
+        })`;
+
+  if (opts.json && opts.dryRun) {
+    process.stdout.write(JSON.stringify(scan, replacer, 2) + "\n");
+    return;
+  }
+
+  if (scan.count === 0) {
+    process.stdout.write(`rnmn: no node_modules found under ${scan.root} (${kindLabel})\n`);
+    return;
+  }
+
+  process.stdout.write(`root: ${scan.root}\n`);
+  process.stdout.write(`      ${kindLabel}\n`);
+  process.stdout.write(
+    `found ${scan.count} node_modules${
+      opts.measure ? ` totalling ${formatBytes(scan.totalBytes)}` : ""
+    }:\n`,
+  );
+  for (const dir of scan.cleaned) {
+    const size = opts.measure ? `  ${formatBytes(dir.bytes).padStart(8)}` : "";
+    process.stdout.write(`${size}  ${relativizePath(scan.root, dir.path)}\n`);
+  }
+
+  if (opts.dryRun) {
+    process.stdout.write(`\n(dry run — nothing deleted)\n`);
+    return;
+  }
+
+  if (!opts.yes && !confirm(`\ndelete these ${scan.count} directories? [y/N] `)) {
+    process.stdout.write("aborted.\n");
+    process.exit(1);
+  }
+
+  // Phase 2: real deletion. Re-measure is unnecessary — reuse sizes we have.
+  const start = process.hrtime.bigint();
+  const result = clean({ root: opts.root, dryRun: false, measure: false });
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+
+  if (opts.json) {
+    process.stdout.write(JSON.stringify(result, replacer, 2) + "\n");
+    return;
+  }
+
+  const deleted = result.count - result.failed;
+  process.stdout.write(
+    `\ndeleted ${deleted}/${result.count} node_modules${
+      opts.measure ? ` (${formatBytes(scan.totalBytes)})` : ""
+    } in ${elapsedMs.toFixed(0)}ms\n`,
+  );
+  if (result.failed > 0) {
+    for (const dir of result.cleaned) {
+      if (dir.error) {
+        process.stderr.write(`  failed: ${relativizePath(result.root, dir.path)} — ${dir.error}\n`);
+      }
+    }
+    process.exit(1);
+  }
+}
+
+function replacer(_key, value) {
+  return typeof value === "bigint" ? Number(value) : value;
+}
+
+main();

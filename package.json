@@ -1,0 +1,48 @@
+{
+  "name": "rnmn",
+  "version": "0.1.0",
+  "description": "Find and delete every nested node_modules in a workspace as fast as possible (napi-rs / Rust)",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "keywords": [
+    "node_modules",
+    "monorepo",
+    "workspace",
+    "clean",
+    "napi-rs",
+    "rust",
+    "bun",
+    "pnpm"
+  ],
+  "bin": {
+    "rnmn": "bin/rnmn.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "bin/rnmn.js",
+    "rnmn.*.node"
+  ],
+  "napi": {
+    "binaryName": "rnmn",
+    "targets": [
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin"
+    ]
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "artifacts": "napi artifacts",
+    "prepublishOnly": "napi prepublish -t npm",
+    "version": "napi version"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0"
+  }
+}

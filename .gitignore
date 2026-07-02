@@ -1,0 +1,9 @@
+/target
+/node_modules
+*.node
+
+# napi build outputs (generated)
+/index.js
+/index.d.ts
+
+.DS_Store
