@@ -174,11 +174,16 @@ jobs:
         shell: bash
       - name: Publish
         # Publishes only when the latest commit message is a bare semver
-        # (e.g. `0.2.0` or `0.2.0-beta.1`) — created by `npm version` / the
-        # release workflow. `napi pre-publish` publishes the per-platform
-        # optionalDependencies packages; then the main package is published.
+        # (e.g. `0.2.0` or `0.2.0-beta.1`) — created by the release workflow.
+        # `napi pre-publish` publishes the per-platform optionalDependencies
+        # packages; then the main package is published.
+        #
+        # Auth comes from the `.npmrc` that actions/setup-node wrote using
+        # NODE_AUTH_TOKEN (at NPM_CONFIG_USERCONFIG); we do NOT hand-write
+        # ~/.npmrc, which npm would ignore anyway. `npm config set access public`
+        # ensures the new sub-packages `napi pre-publish` publishes are public.
         run: |
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          npm config set access public
           if git log -1 --pretty=%B | grep -qE "^[0-9]+\.[0-9]+\.[0-9]+$";
           then
             echo "Publishing stable release"
@@ -194,5 +199,4 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
