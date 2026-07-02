@@ -1,6 +1,6 @@
 #![deny(clippy::all)]
 
-//! rnmn — find every nested `node_modules` under a project root (using the same
+//! rmnm — find every nested `node_modules` under a project root (using the same
 //! workspace resolution as bun / pnpm to describe the layout) and delete them
 //! all, as fast as possible.
 

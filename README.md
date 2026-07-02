@@ -1,11 +1,11 @@
-# rnmn
+# rmnm
 
 **r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and delete them all, as fast as possible.
 
 Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker and parallel deletion. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
 
 ```
-$ rnmn
+$ rmnm
 root: /Users/you/dev/my-monorepo
       package.json workspace (12 packages)
 found 13 node_modules totalling 2.4 GB:
@@ -19,7 +19,7 @@ deleted: 13/13 node_modules (2.4 GB) in 412ms
 
 ## Delete vs. Trash
 
-By default `rnmn` **permanently deletes** each `node_modules` in parallel —
+By default `rmnm` **permanently deletes** each `node_modules` in parallel —
 space is reclaimed immediately.
 
 Pass **`-t` / `--trash`** to move them to the Trash instead. On the same volume
@@ -34,22 +34,22 @@ reclaimed when you empty the Trash. A `node_modules` on a *different* volume
 ## Install
 
 ```sh
-npm install -g rnmn
-# or: bun install -g rnmn
+npm install -g rmnm
+# or: bun install -g rmnm
 ```
 
 Then from any repo root:
 
 ```sh
-rnmn
+rmnm
 ```
 
 ### From source
 
 ```sh
 bun install
-bun run build      # builds both arches + a universal rnmn.darwin-universal.node
-bun link           # makes `rnmn` available on your PATH
+bun run build      # builds both arches + a universal rmnm.darwin-universal.node
+bun link           # makes `rmnm` available on your PATH
 ```
 
 ## What it clears
@@ -68,7 +68,7 @@ packages.
 ## Usage
 
 ```
-rnmn [path] [options]
+rmnm [path] [options]
 
 Arguments:
   path                 Project root to clean (default: current directory)
@@ -82,14 +82,14 @@ Options:
   -h, --help           Show this help
 ```
 
-By default `rnmn` permanently deletes each `node_modules`, after printing what it
+By default `rmnm` permanently deletes each `node_modules`, after printing what it
 found and asking for confirmation (skipped with `-y`, or when stdout isn't a TTY,
 e.g. in CI). Use `-t` to move them to the Trash instead (space reclaimed when you
 empty it), or `-l` to list what would be cleared without touching anything.
 
 ## Workspace resolution
 
-`rnmn` mirrors how bun and pnpm resolve workspace packages:
+`rmnm` mirrors how bun and pnpm resolve workspace packages:
 
 | Source | Field | Example |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ A directory only counts as a workspace package when it contains its own
 The napi-rs core is also usable directly from JavaScript:
 
 ```js
-const { clean, resolveWorkspace } = require("rnmn");
+const { clean, resolveWorkspace } = require("rmnm");
 
 // Clear every nested node_modules under a root.
 //   trash: false (default) → permanent parallel delete; true → move to Trash.

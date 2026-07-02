@@ -3,10 +3,10 @@
 
 const { clean } = require("../index.js");
 
-const HELP = `rnmn — delete every nested node_modules, fast
+const HELP = `rmnm — delete every nested node_modules, fast
 
 Usage:
-  rnmn [path] [options]
+  rmnm [path] [options]
 
 Arguments:
   path                 Project root to clean (default: current directory)
@@ -68,11 +68,11 @@ function parseArgs(argv) {
         break;
       default:
         if (arg.startsWith("-")) {
-          process.stderr.write(`rnmn: unknown option ${arg}\n\n${HELP}`);
+          process.stderr.write(`rmnm: unknown option ${arg}\n\n${HELP}`);
           process.exit(2);
         }
         if (opts.root !== undefined) {
-          process.stderr.write(`rnmn: unexpected extra argument ${arg}\n`);
+          process.stderr.write(`rmnm: unexpected extra argument ${arg}\n`);
           process.exit(2);
         }
         opts.root = arg;
@@ -96,7 +96,7 @@ function relativizePath(root, p) {
   return p;
 }
 
-// Confirmation prompt (synchronous) so a bare `rnmn` in a real repo can't nuke
+// Confirmation prompt (synchronous) so a bare `rmnm` in a real repo can't nuke
 // node_modules by a stray keystroke. Skipped with -y, with --list, or when not
 // attached to a TTY (CI / piped).
 function confirm(question) {
@@ -138,7 +138,7 @@ function main() {
   }
 
   if (scan.count === 0) {
-    process.stdout.write(`rnmn: no node_modules found under ${scan.root} (${kindLabel})\n`);
+    process.stdout.write(`rmnm: no node_modules found under ${scan.root} (${kindLabel})\n`);
     return;
   }
 

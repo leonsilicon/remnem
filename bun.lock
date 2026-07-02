@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "rnmn",
+      "name": "rmnm",
       "devDependencies": {
         "@napi-rs/cli": "^3.0.0",
       },

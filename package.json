@@ -1,5 +1,5 @@
 {
-  "name": "rnmn",
+  "name": "rmnm",
   "version": "0.1.0",
   "description": "Find and delete every nested node_modules in a project as fast as possible (napi-rs / Rust)",
   "type": "commonjs",
@@ -7,13 +7,13 @@
   "types": "index.d.ts",
   "license": "MIT",
   "author": "Leon Si",
-  "homepage": "https://github.com/leonsilicon/rnmn#readme",
+  "homepage": "https://github.com/leonsilicon/rmnm#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leonsilicon/rnmn.git"
+    "url": "git+https://github.com/leonsilicon/rmnm.git"
   },
   "bugs": {
-    "url": "https://github.com/leonsilicon/rnmn/issues"
+    "url": "https://github.com/leonsilicon/rmnm/issues"
   },
   "keywords": [
     "node_modules",
@@ -35,18 +35,18 @@
     "x64"
   ],
   "bin": {
-    "rnmn": "bin/rnmn.js"
+    "rmnm": "bin/rmnm.js"
   },
   "files": [
     "index.js",
     "index.d.ts",
-    "bin/rnmn.js",
-    "rnmn.darwin-universal.node",
+    "bin/rmnm.js",
+    "rmnm.darwin-universal.node",
     "README.md",
     "LICENSE"
   ],
   "napi": {
-    "binaryName": "rnmn",
+    "binaryName": "rmnm",
     "targets": [
       "universal-apple-darwin",
       "aarch64-apple-darwin",

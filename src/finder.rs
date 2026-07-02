@@ -171,7 +171,7 @@ fn remove_all_parallel(dirs: Vec<PathBuf>) -> Vec<(PathBuf, Option<String>)> {
 /// Move each directory to the OS Trash. Trashing is a single native call per
 /// item and, for same-volume items, an O(1) rename — so this runs fast without
 /// a thread pool. Any item the native trash call rejects falls back to a direct
-/// removal so `rnmn` always makes progress.
+/// removal so `rmnm` always makes progress.
 fn trash_all(dirs: Vec<PathBuf>) -> Vec<DeleteResult> {
   use trash::macos::{DeleteMethod, TrashContextExtMacos};
 
