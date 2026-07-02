@@ -1,8 +1,8 @@
 # rnmn
 
-**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and clear them all, **instantly**.
+**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and delete them all, as fast as possible.
 
-Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker. By default it **moves each `node_modules` to the Trash**, which on the same volume is a directory rename — O(1), effectively instant no matter how many files the tree holds — and recoverable in Finder. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
+Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker and parallel deletion. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
 
 ```
 $ rnmn
@@ -12,15 +12,21 @@ found 13 node_modules totalling 2.4 GB:
     318 MB  node_modules
     1.1 GB  apps/web/node_modules
     ...
-move to Trash these 13 directories? [y/N] y
+permanently delete these 13 directories? [y/N] y
 
-moved to Trash: 13/13 node_modules (2.4 GB) in 38ms
-empty the Trash to reclaim the space (or re-run with --rm).
+deleted: 13/13 node_modules (2.4 GB) in 412ms
 ```
 
-## Why it's instant
+## Delete vs. Trash
 
-Deleting a `node_modules` is slow because it holds tens of thousands of tiny files, and `remove_dir_all` must unlink each one. Moving a directory to the Trash on the **same volume** is a single rename — one filesystem operation, independent of how many files are inside. So `rnmn` renames each `node_modules` into the OS Trash and returns immediately; the actual bytes are reclaimed when you empty the Trash (or run `rnmn --rm`). A `node_modules` on a *different* volume (rare) can't be renamed instantly, so those fall back to a direct parallel delete.
+By default `rnmn` **permanently deletes** each `node_modules` in parallel —
+space is reclaimed immediately.
+
+Pass **`-t` / `--trash`** to move them to the Trash instead. On the same volume
+that is a directory *rename* — O(1), effectively instant no matter how many
+files the tree holds — and recoverable in Finder ("Put Back"). The disk space is
+reclaimed when you empty the Trash. A `node_modules` on a *different* volume
+(rare) can't be renamed instantly, so those fall back to a direct delete.
 
 ## Install
 
@@ -60,19 +66,18 @@ Arguments:
   path                 Project root to clean (default: current directory)
 
 Options:
+  -t, --trash          Move to the Trash instead of deleting (instant, recoverable)
   -n, --dry-run        List what would be cleared; touch nothing
-      --rm             Permanently delete instead of moving to the Trash
       --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
       --json           Print the raw result as JSON
   -y, --yes            Skip the confirmation prompt
   -h, --help           Show this help
 ```
 
-By default `rnmn` moves each `node_modules` to the Trash (instant, recoverable),
-after printing what it found and asking for confirmation (skipped with `-y`, or
-when stdout isn't a TTY, e.g. in CI). Space is reclaimed when you empty the
-Trash. Use `--rm` to hard-delete and reclaim the space immediately, or
-`--dry-run` to preview without touching anything.
+By default `rnmn` permanently deletes each `node_modules`, after printing what it
+found and asking for confirmation (skipped with `-y`, or when stdout isn't a TTY,
+e.g. in CI). Use `-t` to move them to the Trash instead (space reclaimed when you
+empty it), or `--dry-run` to preview without touching anything.
 
 ## Workspace resolution
 
@@ -104,8 +109,8 @@ The napi-rs core is also usable directly from JavaScript:
 const { clean, resolveWorkspace } = require("rnmn");
 
 // Clear every nested node_modules under a root.
-//   trash: true (default) → move to Trash (instant); false → permanent delete.
-const result = clean({ root: "/path/to/repo", dryRun: false, measure: true, trash: true });
+//   trash: false (default) → permanent parallel delete; true → move to Trash.
+const result = clean({ root: "/path/to/repo", dryRun: false, measure: true, trash: false });
 // → { root, workspaceKind, workspacePackages, cleaned: [{ path, bytes, deleted, trashed, error }], totalBytes, count, failed }
 
 // Just inspect how bun/pnpm would see the workspace (no deletion).

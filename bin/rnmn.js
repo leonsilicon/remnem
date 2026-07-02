@@ -3,7 +3,7 @@
 
 const { clean } = require("../index.js");
 
-const HELP = `rnmn — clear every nested node_modules, instantly
+const HELP = `rnmn — delete every nested node_modules, fast
 
 Usage:
   rnmn [path] [options]
@@ -12,8 +12,8 @@ Arguments:
   path                 Project root to clean (default: current directory)
 
 Options:
+  -t, --trash          Move to the Trash instead of deleting (instant, recoverable)
   -n, --dry-run        List what would be cleared; touch nothing
-      --rm             Permanently delete instead of moving to the Trash
       --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
       --json           Print the raw result as JSON
   -y, --yes            Skip the confirmation prompt
@@ -21,9 +21,11 @@ Options:
 
 Finds every node_modules directory under <path> (root + all workspace packages
 + any nested ones), using the same workspace resolution as bun / pnpm to report
-the layout, then moves them to the Trash. On the same volume that is a rename —
-effectively instant no matter how large — and recoverable in Finder. Space is
-reclaimed when you empty the Trash; use --rm to hard-delete and reclaim now.
+the layout, then permanently deletes them in parallel.
+
+With -t, moves them to the Trash instead — on the same volume that is a rename
+(instant no matter how large) and recoverable in Finder; the space is reclaimed
+when you empty the Trash.
 `;
 
 function parseArgs(argv) {
@@ -31,7 +33,7 @@ function parseArgs(argv) {
     root: undefined,
     dryRun: false,
     measure: true,
-    trash: true,
+    trash: false,
     json: false,
     yes: false,
     help: false,
@@ -47,10 +49,7 @@ function parseArgs(argv) {
       case "--dry-run":
         opts.dryRun = true;
         break;
-      case "--rm":
-      case "--remove":
-        opts.trash = false;
-        break;
+      case "-t":
       case "--trash":
         opts.trash = true;
         break;
@@ -195,7 +194,7 @@ function main() {
     } in ${elapsedMs.toFixed(0)}ms\n`,
   );
   if (opts.trash && trashedCount > 0) {
-    process.stdout.write(`empty the Trash to reclaim the space (or re-run with --rm).\n`);
+    process.stdout.write(`empty the Trash to reclaim the space (or re-run without -t to delete).\n`);
   }
   if (result.failed > 0) {
     for (const dir of result.cleaned) {

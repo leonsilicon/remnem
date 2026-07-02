@@ -22,10 +22,11 @@ pub struct CleanOptions {
   /// When `true`, measure the on-disk size of each `node_modules` before
   /// deleting (a second parallel pass). Defaults to `true`.
   pub measure: Option<bool>,
-  /// When `true` (the default), move each `node_modules` to the OS Trash — a
-  /// same-volume rename, effectively instant, recoverable in Finder. When
-  /// `false`, permanently `remove_dir_all` them (reclaims space immediately,
-  /// not recoverable).
+  /// When `true`, move each `node_modules` to the OS Trash — a same-volume
+  /// rename, effectively instant, recoverable in Finder; space is reclaimed
+  /// when the Trash is emptied. When `false` (the default), permanently
+  /// `remove_dir_all` them in parallel (reclaims space immediately, not
+  /// recoverable).
   pub trash: Option<bool>,
 }
 
@@ -102,8 +103,8 @@ pub fn clean(options: Option<CleanOptions>) -> Result<CleanResult> {
   let root = resolve_root(options.root)?;
   let dry_run = options.dry_run.unwrap_or(false);
   let measure = options.measure.unwrap_or(true);
-  // Trash-to-Finder is the default: a same-volume rename, effectively instant.
-  let mode = if options.trash.unwrap_or(true) {
+  // Direct in-place removal is the default; `-t` opts into moving to the Trash.
+  let mode = if options.trash.unwrap_or(false) {
     finder::Mode::Trash
   } else {
     finder::Mode::Remove

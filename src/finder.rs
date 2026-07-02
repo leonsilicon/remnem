@@ -124,14 +124,14 @@ pub struct DeleteResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
   /// Permanently `remove_dir_all` — reclaims disk space immediately, not
-  /// recoverable. Runs in parallel (rayon).
+  /// recoverable. Runs in parallel (rayon). This is the default.
   Remove,
   /// Move to the OS Trash via the native `trashItemAtURL` API. On the same
   /// volume this is a directory rename — effectively instant regardless of how
-  /// many files the tree holds — and leaves the item recoverable in Finder
-  /// ("Put Back"). Space is reclaimed when the Trash is emptied. If trashing
-  /// fails (e.g. a cross-volume item the OS would have to copy, or a
-  /// permissions issue), falls back to a direct `remove_dir_all`.
+  /// many files the tree holds — and recoverable in Finder ("Put Back"). Space
+  /// is reclaimed when the Trash is emptied. If trashing fails (e.g. a
+  /// cross-volume item the OS would have to copy, or a permissions issue),
+  /// falls back to a direct `remove_dir_all`.
   Trash,
 }
 
