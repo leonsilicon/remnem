@@ -3,7 +3,7 @@
 
 const { clean } = require("../index.js");
 
-const HELP = `rnmn — delete every nested node_modules, fast
+const HELP = `rnmn — clear every nested node_modules, instantly
 
 Usage:
   rnmn [path] [options]
@@ -12,7 +12,8 @@ Arguments:
   path                 Project root to clean (default: current directory)
 
 Options:
-  -n, --dry-run        List what would be deleted; delete nothing
+  -n, --dry-run        List what would be cleared; touch nothing
+      --rm             Permanently delete instead of moving to the Trash
       --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
       --json           Print the raw result as JSON
   -y, --yes            Skip the confirmation prompt
@@ -20,7 +21,9 @@ Options:
 
 Finds every node_modules directory under <path> (root + all workspace packages
 + any nested ones), using the same workspace resolution as bun / pnpm to report
-the layout, then removes them in parallel.
+the layout, then moves them to the Trash. On the same volume that is a rename —
+effectively instant no matter how large — and recoverable in Finder. Space is
+reclaimed when you empty the Trash; use --rm to hard-delete and reclaim now.
 `;
 
 function parseArgs(argv) {
@@ -28,6 +31,7 @@ function parseArgs(argv) {
     root: undefined,
     dryRun: false,
     measure: true,
+    trash: true,
     json: false,
     yes: false,
     help: false,
@@ -42,6 +46,13 @@ function parseArgs(argv) {
       case "-n":
       case "--dry-run":
         opts.dryRun = true;
+        break;
+      case "--rm":
+      case "--remove":
+        opts.trash = false;
+        break;
+      case "--trash":
+        opts.trash = true;
         break;
       case "--no-measure":
         opts.measure = false;
@@ -145,18 +156,19 @@ function main() {
   }
 
   if (opts.dryRun) {
-    process.stdout.write(`\n(dry run — nothing deleted)\n`);
+    process.stdout.write(`\n(dry run — nothing ${opts.trash ? "trashed" : "deleted"})\n`);
     return;
   }
 
-  if (!opts.yes && !confirm(`\ndelete these ${scan.count} directories? [y/N] `)) {
+  const verb = opts.trash ? "move to Trash" : "permanently delete";
+  if (!opts.yes && !confirm(`\n${verb} these ${scan.count} directories? [y/N] `)) {
     process.stdout.write("aborted.\n");
     process.exit(1);
   }
 
-  // Phase 2: real deletion. Re-measure is unnecessary — reuse sizes we have.
+  // Phase 2: real disposal. Re-measure is unnecessary — reuse sizes we have.
   const start = process.hrtime.bigint();
-  const result = clean({ root: opts.root, dryRun: false, measure: false });
+  const result = clean({ root: opts.root, dryRun: false, measure: false, trash: opts.trash });
   const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
 
   if (opts.json) {
@@ -164,12 +176,27 @@ function main() {
     return;
   }
 
-  const deleted = result.count - result.failed;
+  const done = result.count - result.failed;
+  const trashedCount = result.cleaned.filter((d) => d.trashed).length;
+  // Report how the space went: "trashed" (recoverable, empty Trash to reclaim)
+  // vs "deleted" (gone). A trash run that fell back to hard-remove for some
+  // items is noted so the count still adds up.
+  let action;
+  if (!opts.trash) {
+    action = "deleted";
+  } else if (trashedCount === done) {
+    action = "moved to Trash";
+  } else {
+    action = `moved to Trash (${done - trashedCount} hard-deleted)`;
+  }
   process.stdout.write(
-    `\ndeleted ${deleted}/${result.count} node_modules${
+    `\n${action}: ${done}/${result.count} node_modules${
       opts.measure ? ` (${formatBytes(scan.totalBytes)})` : ""
     } in ${elapsedMs.toFixed(0)}ms\n`,
   );
+  if (opts.trash && trashedCount > 0) {
+    process.stdout.write(`empty the Trash to reclaim the space (or re-run with --rm).\n`);
+  }
   if (result.failed > 0) {
     for (const dir of result.cleaned) {
       if (dir.error) {

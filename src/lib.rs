@@ -22,6 +22,11 @@ pub struct CleanOptions {
   /// When `true`, measure the on-disk size of each `node_modules` before
   /// deleting (a second parallel pass). Defaults to `true`.
   pub measure: Option<bool>,
+  /// When `true` (the default), move each `node_modules` to the OS Trash — a
+  /// same-volume rename, effectively instant, recoverable in Finder. When
+  /// `false`, permanently `remove_dir_all` them (reclaims space immediately,
+  /// not recoverable).
+  pub trash: Option<bool>,
 }
 
 /// A single deleted (or would-be-deleted) `node_modules` directory.
@@ -30,9 +35,11 @@ pub struct CleanedDir {
   pub path: String,
   /// Bytes the directory held (0 when `measure` is false).
   pub bytes: BigInt,
-  /// `true` if this directory was (or would be) deleted successfully.
+  /// `true` if this directory was (or would be) disposed of successfully.
   pub deleted: bool,
-  /// Error message if deletion failed.
+  /// `true` if it was moved to the Trash (vs. permanently removed).
+  pub trashed: bool,
+  /// Error message if disposal failed.
   pub error: Option<String>,
 }
 
@@ -90,10 +97,17 @@ pub fn clean(options: Option<CleanOptions>) -> Result<CleanResult> {
     root: None,
     dry_run: None,
     measure: None,
+    trash: None,
   });
   let root = resolve_root(options.root)?;
   let dry_run = options.dry_run.unwrap_or(false);
   let measure = options.measure.unwrap_or(true);
+  // Trash-to-Finder is the default: a same-volume rename, effectively instant.
+  let mode = if options.trash.unwrap_or(true) {
+    finder::Mode::Trash
+  } else {
+    finder::Mode::Remove
+  };
 
   let ws = workspace::resolve(&root);
   let workspace_packages = collect_packages(&root, &ws);
@@ -111,13 +125,14 @@ pub fn clean(options: Option<CleanOptions>) -> Result<CleanResult> {
         path: f.path.to_string_lossy().into_owned(),
         bytes: BigInt::from(f.bytes),
         deleted: false,
+        trashed: false,
         error: None,
       })
       .collect()
   } else {
     let bytes_by_path: std::collections::HashMap<PathBuf, u64> =
       found.into_iter().map(|f| (f.path, f.bytes)).collect();
-    let results = finder::delete_all(paths);
+    let results = finder::delete_all(paths, mode);
     results
       .into_iter()
       .map(|r| {
@@ -126,6 +141,7 @@ pub fn clean(options: Option<CleanOptions>) -> Result<CleanResult> {
           path: r.path.to_string_lossy().into_owned(),
           bytes: BigInt::from(bytes),
           deleted: r.error.is_none(),
+          trashed: r.trashed,
           error: r.error,
         }
       })

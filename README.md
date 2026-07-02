@@ -1,8 +1,8 @@
 # rnmn
 
-**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and delete them all, as fast as possible.
+**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and clear them all, **instantly**.
 
-Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker and parallel deletion. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
+Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker. By default it **moves each `node_modules` to the Trash**, which on the same volume is a directory rename — O(1), effectively instant no matter how many files the tree holds — and recoverable in Finder. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
 
 ```
 $ rnmn
@@ -12,10 +12,15 @@ found 13 node_modules totalling 2.4 GB:
     318 MB  node_modules
     1.1 GB  apps/web/node_modules
     ...
-delete these 13 directories? [y/N] y
+move to Trash these 13 directories? [y/N] y
 
-deleted 13/13 node_modules (2.4 GB) in 412ms
+moved to Trash: 13/13 node_modules (2.4 GB) in 38ms
+empty the Trash to reclaim the space (or re-run with --rm).
 ```
+
+## Why it's instant
+
+Deleting a `node_modules` is slow because it holds tens of thousands of tiny files, and `remove_dir_all` must unlink each one. Moving a directory to the Trash on the **same volume** is a single rename — one filesystem operation, independent of how many files are inside. So `rnmn` renames each `node_modules` into the OS Trash and returns immediately; the actual bytes are reclaimed when you empty the Trash (or run `rnmn --rm`). A `node_modules` on a *different* volume (rare) can't be renamed instantly, so those fall back to a direct parallel delete.
 
 ## Install
 
@@ -33,7 +38,7 @@ Then from any repo root:
 rnmn
 ```
 
-## What it deletes
+## What it clears
 
 **Every `node_modules` directory** under the given root — the root's own, every
 workspace package's, and any stray nested ones — leaving all your source and
@@ -43,7 +48,7 @@ fast even on trees with hundreds of thousands of files.
 
 Workspace resolution (reading `package.json#workspaces` for bun/npm/yarn, or
 `pnpm-workspace.yaml#packages` for pnpm) is used to **report** the workspace
-layout; deletion always targets every nested `node_modules`, not only workspace
+layout; clearing always targets every nested `node_modules`, not only workspace
 packages.
 
 ## Usage
@@ -55,15 +60,18 @@ Arguments:
   path                 Project root to clean (default: current directory)
 
 Options:
-  -n, --dry-run        List what would be deleted; delete nothing
+  -n, --dry-run        List what would be cleared; touch nothing
+      --rm             Permanently delete instead of moving to the Trash
       --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
       --json           Print the raw result as JSON
   -y, --yes            Skip the confirmation prompt
   -h, --help           Show this help
 ```
 
-By default `rnmn` prints what it found and asks for confirmation before
-deleting (skipped with `-y`, or when stdout isn't a TTY, e.g. in CI). Use
+By default `rnmn` moves each `node_modules` to the Trash (instant, recoverable),
+after printing what it found and asking for confirmation (skipped with `-y`, or
+when stdout isn't a TTY, e.g. in CI). Space is reclaimed when you empty the
+Trash. Use `--rm` to hard-delete and reclaim the space immediately, or
 `--dry-run` to preview without touching anything.
 
 ## Workspace resolution
@@ -95,9 +103,10 @@ The napi-rs core is also usable directly from JavaScript:
 ```js
 const { clean, resolveWorkspace } = require("rnmn");
 
-// Delete every nested node_modules under a root.
-const result = clean({ root: "/path/to/repo", dryRun: false, measure: true });
-// → { root, workspaceKind, workspacePackages, cleaned: [...], totalBytes, count, failed }
+// Clear every nested node_modules under a root.
+//   trash: true (default) → move to Trash (instant); false → permanent delete.
+const result = clean({ root: "/path/to/repo", dryRun: false, measure: true, trash: true });
+// → { root, workspaceKind, workspacePackages, cleaned: [{ path, bytes, deleted, trashed, error }], totalBytes, count, failed }
 
 // Just inspect how bun/pnpm would see the workspace (no deletion).
 const ws = resolveWorkspace("/path/to/repo");

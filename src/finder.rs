@@ -110,16 +110,49 @@ fn dir_size(dir: &Path) -> u64 {
   total.into_inner()
 }
 
-/// Outcome of deleting one directory.
+/// Outcome of disposing of one directory.
 #[derive(Debug)]
 pub struct DeleteResult {
   pub path: PathBuf,
   pub error: Option<String>,
+  /// `true` if the directory was moved to the Trash; `false` if it was
+  /// permanently removed (either by `Mode::Remove` or the trash fallback).
+  pub trashed: bool,
 }
 
-/// Delete every given directory in parallel. Each deletion is independent; an
-/// error on one does not stop the others.
-pub fn delete_all(dirs: Vec<PathBuf>) -> Vec<DeleteResult> {
+/// How a directory should be disposed of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+  /// Permanently `remove_dir_all` — reclaims disk space immediately, not
+  /// recoverable. Runs in parallel (rayon).
+  Remove,
+  /// Move to the OS Trash via the native `trashItemAtURL` API. On the same
+  /// volume this is a directory rename — effectively instant regardless of how
+  /// many files the tree holds — and leaves the item recoverable in Finder
+  /// ("Put Back"). Space is reclaimed when the Trash is emptied. If trashing
+  /// fails (e.g. a cross-volume item the OS would have to copy, or a
+  /// permissions issue), falls back to a direct `remove_dir_all`.
+  Trash,
+}
+
+/// Dispose of every given directory according to `mode`. Each operation is
+/// independent; an error on one does not stop the others. Whether a directory
+/// was trashed (vs. hard-removed via fallback) is recorded per result.
+pub fn delete_all(dirs: Vec<PathBuf>, mode: Mode) -> Vec<DeleteResult> {
+  match mode {
+    Mode::Remove => remove_all_parallel(dirs)
+      .into_iter()
+      .map(|(path, error)| DeleteResult {
+        path,
+        error,
+        trashed: false,
+      })
+      .collect(),
+    Mode::Trash => trash_all(dirs),
+  }
+}
+
+fn remove_all_parallel(dirs: Vec<PathBuf>) -> Vec<(PathBuf, Option<String>)> {
   use rayon::prelude::*;
   dirs
     .into_par_iter()
@@ -130,7 +163,48 @@ pub fn delete_all(dirs: Vec<PathBuf>) -> Vec<DeleteResult> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => Some(e.to_string()),
       };
-      DeleteResult { path, error }
+      (path, error)
+    })
+    .collect()
+}
+
+/// Move each directory to the OS Trash. Trashing is a single native call per
+/// item and, for same-volume items, an O(1) rename — so this runs fast without
+/// a thread pool. Any item the native trash call rejects falls back to a direct
+/// removal so `rnmn` always makes progress.
+fn trash_all(dirs: Vec<PathBuf>) -> Vec<DeleteResult> {
+  use trash::macos::{DeleteMethod, TrashContextExtMacos};
+
+  let mut ctx = trash::TrashContext::default();
+  // `NsFileManager` uses `trashItemAtURL` directly — faster than the default
+  // Finder/osascript path and silent (no delete sound), while still recording
+  // the "Put Back" metadata so items restore to their original location.
+  ctx.set_delete_method(DeleteMethod::NsFileManager);
+
+  dirs
+    .into_iter()
+    .map(|path| match ctx.delete(&path) {
+      Ok(()) => DeleteResult {
+        path,
+        error: None,
+        trashed: true,
+      },
+      Err(trash_err) => {
+        // Trash rejected it (cross-volume copy cost, unsupported location,
+        // etc.) — reclaim the space directly instead of failing.
+        let error = match std::fs::remove_dir_all(&path) {
+          Ok(()) => None,
+          Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+          Err(rm_err) => Some(format!(
+            "trash failed ({trash_err}) and remove failed ({rm_err})"
+          )),
+        };
+        DeleteResult {
+          path,
+          error,
+          trashed: false,
+        }
+      }
     })
     .collect()
 }
