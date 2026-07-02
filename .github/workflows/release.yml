@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   version:
@@ -79,3 +80,10 @@ jobs:
           git commit -m "$NEW_VERSION"
           git tag "v$NEW_VERSION"
           git push origin HEAD --tags
+      - name: Dispatch the CI build+publish run for this release commit
+        # A push authored by GITHUB_TOKEN does not trigger `on: push`, so kick the
+        # CI workflow off explicitly. CI checks out the ref, sees the bare-semver
+        # HEAD commit message, and publishes.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run CI --ref main

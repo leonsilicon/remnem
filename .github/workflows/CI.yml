@@ -21,6 +21,10 @@ on:
       - '**/*.gitignore'
       - .editorconfig
   pull_request: null
+  # Lets the Release workflow dispatch a build+publish run for the release commit
+  # it pushed. A push authored by the workflow's GITHUB_TOKEN does NOT trigger
+  # `on: push`, so the publish must be kicked off explicitly.
+  workflow_dispatch: null
 
 jobs:
   build:
