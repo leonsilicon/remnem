@@ -1,33 +1,52 @@
 # remnem
 
-**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and delete them all, as fast as possible.
+**r**e**m**ove **n**ode_**m**odules — find every nested `node_modules` in a project (root + all workspaces + any nested ones) and delete them all, **instantly**.
 
-Written in Rust ([napi-rs](https://napi.rs)) with a parallel directory walker and parallel deletion. Uses the **same workspace resolution as [bun](https://bun.sh/docs/install/workspaces) and [pnpm](https://pnpm.io/pnpm-workspace_yaml)** to describe the workspace layout.
+A single self-contained CLI written in **Rust**: a lean, parallel, directory-only walker finds every `node_modules`, then each one is disposed of by an **O(1) rename** rather than a slow recursive unlink — so clearing a 1000-package monorepo takes a couple hundred milliseconds instead of tens of seconds.
 
 ```
 $ remnem
 root: /Users/you/dev/my-monorepo
-      package.json workspace (12 packages)
-found 13 node_modules totalling 2.4 GB:
-    318 MB  node_modules
-    1.1 GB  apps/web/node_modules
-    ...
-permanently delete these 13 directories? [y/N] y
+found 1947 node_modules:
+  node_modules
+  apps/web/node_modules
+  ...
+permanently delete these 1947 directories? [y/N] y
 
-deleted: 13/13 node_modules (2.4 GB) in 412ms
+deleted: 1947/1947 node_modules in 130ms
+(space is being reclaimed in the background)
 ```
+
+## How it's instant
+
+Physically deleting `node_modules` means unlinking hundreds of thousands of
+files — that is I/O-bound and unavoidably slow (tens of seconds on a big
+monorepo). remnem sidesteps that on the critical path:
+
+1. **Find** — a parallel, directory-only walk. It reads directory entries via
+   `readdir`'s `d_type` (no per-file `stat`), never looks at regular files, and
+   never descends *into* a `node_modules` (the whole subtree is going anyway).
+   So the walk is proportional to your *source* tree, not the installed
+   dependency tree.
+2. **Rename aside** — each `node_modules` is `rename`d to a hidden sibling in the
+   same directory. On one filesystem that is an O(1) metadata operation no matter
+   how large the tree is. The instant it returns, `node_modules` is gone from its
+   location — **a clean reinstall can start immediately**.
+3. **Reclaim in the background** — a detached background process `rm -rf`s the
+   renamed directories, so the disk-freeing I/O never blocks you. Space comes
+   back within a few seconds, hands-free.
+
+Pass **`--sync`** if you'd rather block until the space is actually reclaimed
+(e.g. a script that measures free disk right after).
 
 ## Delete vs. Trash
 
-By default `remnem` **permanently deletes** each `node_modules` in parallel —
-space is reclaimed immediately.
-
-Pass **`-t` / `--trash`** to move them to the OS trash instead (Finder Trash on
-macOS, the freedesktop trash on Linux, the Recycle Bin on Windows). On the same
-volume that is a directory *rename* — O(1), effectively instant no matter how
-many files the tree holds — and recoverable from the trash. The disk space is
-reclaimed when you empty it. A `node_modules` on a *different* volume (rare)
-can't be renamed instantly, so those fall back to a direct delete.
+By default `remnem` **permanently deletes** (via the instant rename-then-reap
+above). Pass **`-t` / `--trash`** to move each `node_modules` to the OS trash
+instead (Finder Trash on macOS, the freedesktop trash on Linux, the Recycle Bin
+on Windows) — recoverable from the trash, with the space reclaimed when you empty
+it. A `node_modules` on a *different* volume (rare) can't be renamed instantly, so
+those fall back to a direct delete.
 
 ## Install
 
@@ -36,36 +55,29 @@ npm install -g remnem
 # or: bun install -g remnem
 ```
 
-The right prebuilt native binary is pulled in automatically for your platform
-via `optionalDependencies`. Supported: **macOS** (arm64, x64), **Linux** (arm64
-& x64, glibc & musl), **Windows** (arm64, x64).
+The right prebuilt binary is pulled in automatically for your platform via
+`optionalDependencies` — the main `remnem` package is a tiny launcher that execs
+it. Supported: **macOS** (arm64, x64), **Linux** (arm64 & x64, glibc & musl),
+**Windows** (arm64, x64).
 
 Then from any repo root:
 
 ```sh
-remnem
+remnem            # or: npx remnem  /  bunx remnem
 ```
 
 ### From source
 
 ```sh
-bun install
-bun run build      # builds the native addon for your host → remnem.<platform>.node
-bun link           # makes `remnem` available on your PATH
+cargo build --release       # produces target/release/remnem
+./target/release/remnem --help
 ```
 
 ## What it clears
 
 **Every `node_modules` directory** under the given root — the root's own, every
 workspace package's, and any stray nested ones — leaving all your source and
-`package.json` files untouched. The walker never descends *into* a
-`node_modules` (the whole subtree is going to be removed anyway), so it stays
-fast even on trees with hundreds of thousands of files.
-
-Workspace resolution (reading `package.json#workspaces` for bun/npm/yarn, or
-`pnpm-workspace.yaml#packages` for pnpm) is used to **report** the workspace
-layout; clearing always targets every nested `node_modules`, not only workspace
-packages.
+`package.json` files untouched.
 
 ## Usage
 
@@ -76,22 +88,27 @@ Arguments:
   path                 Project root to clean (default: current directory)
 
 Options:
-  -t, --trash          Move to the Trash instead of deleting (instant, recoverable)
+  -t, --trash          Move to the Trash instead of deleting (recoverable)
   -l, --list           List what would be cleared; touch nothing
-      --no-measure     Skip sizing each node_modules (faster; sizes show as 0)
+  -m, --measure        Size each node_modules (slow: walks every dependency tree)
+  -w, --workspace      Also resolve & report the bun/pnpm workspace layout (slow)
+      --sync           Wait for the disk space to actually free before returning
       --json           Print the raw result as JSON
   -y, --yes            Skip the confirmation prompt
   -h, --help           Show this help
 ```
 
-By default `remnem` permanently deletes each `node_modules`, after printing what it
-found and asking for confirmation (skipped with `-y`, or when stdout isn't a TTY,
-e.g. in CI). Use `-t` to move them to the Trash instead (space reclaimed when you
-empty it), or `-l` to list what would be cleared without touching anything.
+By default `remnem` deletes each `node_modules` after printing what it found and
+asking for confirmation (skipped with `-y`, or when stdin isn't a TTY, e.g. in
+CI). Use `-l` to list without touching anything, `-t` to move to the Trash, or
+`--sync` to wait for the space to be reclaimed.
 
-## Workspace resolution
+Sizing (`-m`) and workspace-layout resolution (`-w`) each require an extra tree
+walk, so they are **off by default** — the fast path does neither.
 
-`remnem` mirrors how bun and pnpm resolve workspace packages:
+## Workspace resolution (`-w`)
+
+With `-w`, `remnem` reports the workspace layout the way bun and pnpm resolve it:
 
 | Source | Field | Example |
 | --- | --- | --- |
@@ -108,34 +125,15 @@ matcher bun/npm/yarn use):
 - `!pattern` excludes previously-matched directories (`!**/test/**` drops a
   directory named `test` and its contents)
 
-A directory only counts as a workspace package when it contains its own
-`package.json`.
-
-## API
-
-The napi-rs core is also usable directly from JavaScript:
-
-```js
-const { clean, resolveWorkspace } = require("remnem");
-
-// Clear every nested node_modules under a root.
-//   trash: false (default) → permanent parallel delete; true → move to Trash.
-const result = clean({ root: "/path/to/repo", dryRun: false, measure: true, trash: false });
-// → { root, workspaceKind, workspacePackages, cleaned: [{ path, bytes, deleted, trashed, error }], totalBytes, count, failed }
-
-// Just inspect how bun/pnpm would see the workspace (no deletion).
-const ws = resolveWorkspace("/path/to/repo");
-// → { workspaceKind: "pnpm" | "package.json" | "none", workspacePackages: [...] }
-```
-
-See `index.d.ts` for the full typed surface.
+This is purely informational: clearing always targets every nested
+`node_modules`, not only workspace packages.
 
 ## Development
 
 ```sh
 cargo test                 # Rust unit tests (workspace resolution + glob semantics)
-bun run build:debug        # debug build
-bun run build              # release build (LTO)
+cargo build --release      # release build (LTO)
+node __test__/smoke.mjs ./target/release/remnem   # end-to-end smoke test
 ```
 
 ## License

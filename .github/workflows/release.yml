@@ -1,13 +1,12 @@
 name: Release
 
-# One-shot release: bump the version, build every platform, and publish — all in
-# a single run. No cross-workflow dispatch (which raced and checked out the wrong
-# commit). The build/publish here mirror CI.yml's build job.
+# One-shot release: bump the version, build a binary for every platform, and
+# publish — all in a single run. The main `remnem` package is a thin Node
+# launcher; the actual compiled CLI ships in the per-platform
+# `@leonsilicon/remnem-<platform>` optional-dependency packages, one binary each.
 
 env:
-  DEBUG: napi:*
   APP_NAME: remnem
-  MACOSX_DEPLOYMENT_TARGET: '10.13'
 
 on:
   workflow_dispatch:
@@ -37,13 +36,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: bun install
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -51,24 +46,27 @@ jobs:
       - name: Bump version (main + all npm sub-packages)
         id: bump
         run: |
-          # --ignore-scripts: this package has a `version` npm script (napi
-          # version) that would otherwise print `> ...` lines and corrupt output.
           npm version ${{ inputs.bump }} --no-git-tag-version --ignore-scripts >/dev/null
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Bumped to $NEW_VERSION"
-          # Sync every npm/* sub-package's own version to the root version.
-          bunx napi version
-          # napi version does NOT touch the main package's optionalDependencies
-          # ranges, so sync those too — else the published main package would
-          # depend on the previous version of each platform package.
+          # Sync every npm/* sub-package version AND the main package's
+          # optionalDependencies ranges to the new root version.
           node -e '
             const fs = require("fs");
+            const version = require("./package.json").version;
             const pkg = JSON.parse(fs.readFileSync("./package.json", "utf8"));
             for (const dep of Object.keys(pkg.optionalDependencies ?? {})) {
-              pkg.optionalDependencies[dep] = pkg.version;
+              pkg.optionalDependencies[dep] = version;
             }
             fs.writeFileSync("./package.json", JSON.stringify(pkg, null, 2) + "\n");
+            for (const dir of fs.readdirSync("./npm")) {
+              const p = `./npm/${dir}/package.json`;
+              if (!fs.existsSync(p)) continue;
+              const sub = JSON.parse(fs.readFileSync(p, "utf8"));
+              sub.version = version;
+              fs.writeFileSync(p, JSON.stringify(sub, null, 2) + "\n");
+            }
           '
       - name: Commit and tag
         run: |
@@ -86,29 +84,31 @@ jobs:
         settings:
           - host: macos-latest
             target: x86_64-apple-darwin
-            build: bun run build --target x86_64-apple-darwin
+            npm_dir: darwin-x64
           - host: macos-latest
             target: aarch64-apple-darwin
-            build: bun run build --target aarch64-apple-darwin
+            npm_dir: darwin-arm64
           - host: windows-latest
             target: x86_64-pc-windows-msvc
-            build: bun run build --target x86_64-pc-windows-msvc
+            npm_dir: win32-x64-msvc
           - host: windows-latest
             target: aarch64-pc-windows-msvc
-            build: bun run build --target aarch64-pc-windows-msvc
+            npm_dir: win32-arm64-msvc
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            build: bun run build --target x86_64-unknown-linux-gnu --use-napi-cross
+            npm_dir: linux-x64-gnu
+            zig: true
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            build: bun run build --target x86_64-unknown-linux-musl -x
+            npm_dir: linux-x64-musl
             zig: true
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            build: bun run build --target aarch64-unknown-linux-gnu --use-napi-cross
+            npm_dir: linux-arm64-gnu
+            zig: true
           - host: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            build: bun run build --target aarch64-unknown-linux-musl -x
+            npm_dir: linux-arm64-musl
             zig: true
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -116,9 +116,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: v${{ needs.version.outputs.version }}
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
@@ -127,17 +124,35 @@ jobs:
         uses: mlugg/setup-zig@v2
         with:
           version: 0.13.0
-      - run: bun install
-      - name: Build
-        run: ${{ matrix.settings.build }}
+      - name: Install cargo-zigbuild
+        if: ${{ matrix.settings.zig }}
+        run: cargo install cargo-zigbuild --locked
+      - name: Build (native)
+        if: ${{ !matrix.settings.zig }}
+        run: cargo build --release --target ${{ matrix.settings.target }}
         shell: bash
+      - name: Build (zig cross)
+        if: ${{ matrix.settings.zig }}
+        run: cargo zigbuild --release --target ${{ matrix.settings.target }}
+        shell: bash
+      - name: Stage binary into its npm package
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.settings.host }}" == windows-* ]]; then
+            cp "target/${{ matrix.settings.target }}/release/${APP_NAME}.exe" \
+               "npm/${{ matrix.settings.npm_dir }}/${APP_NAME}.exe"
+          else
+            cp "target/${{ matrix.settings.target }}/release/${APP_NAME}" \
+               "npm/${{ matrix.settings.npm_dir }}/${APP_NAME}"
+            chmod +x "npm/${{ matrix.settings.npm_dir }}/${APP_NAME}"
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: bindings-${{ matrix.settings.target }}
+          name: binary-${{ matrix.settings.target }}
           path: |
-            ${{ env.APP_NAME }}.*.node
-            index.js
-            index.d.ts
+            npm/${{ matrix.settings.npm_dir }}/${{ env.APP_NAME }}
+            npm/${{ matrix.settings.npm_dir }}/${{ env.APP_NAME }}.exe
           if-no-files-found: error
 
   publish:
@@ -150,42 +165,50 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: v${{ needs.version.outputs.version }}
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      - run: bun install
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Copy the built binaries into the per-platform npm packages
-        run: bunx napi artifacts --output-dir ./artifacts --npm-dir ./npm
-      - name: Restore the generated JS loader for the main package
-        # index.js / index.d.ts are gitignored (generated by `napi build`) so they
-        # are not in the checkout. Every build artifact bundles them; copy one set
-        # to the repo root so the published main package includes its loader
-        # (without it, bin/remnem.js `require('../index.js')` fails at runtime).
+      - name: Place each binary into its npm package
+        shell: bash
         run: |
-          src=$(find ./artifacts -name index.js | head -n1)
-          cp "$src" ./index.js
-          cp "$(dirname "$src")/index.d.ts" ./index.d.ts
-          test -f ./index.js && test -f ./index.d.ts
-        shell: bash
-      - name: List npm packages
-        run: ls -R ./npm
-        shell: bash
+          set -euo pipefail
+          # Map each downloaded artifact (named binary-<target>) into the right
+          # npm/<platform> directory by matching on the target triple.
+          declare -A MAP=(
+            [x86_64-apple-darwin]=darwin-x64
+            [aarch64-apple-darwin]=darwin-arm64
+            [x86_64-pc-windows-msvc]=win32-x64-msvc
+            [aarch64-pc-windows-msvc]=win32-arm64-msvc
+            [x86_64-unknown-linux-gnu]=linux-x64-gnu
+            [x86_64-unknown-linux-musl]=linux-x64-musl
+            [aarch64-unknown-linux-gnu]=linux-arm64-gnu
+            [aarch64-unknown-linux-musl]=linux-arm64-musl
+          )
+          for target in "${!MAP[@]}"; do
+            dir="artifacts/binary-${target}"
+            [ -d "$dir" ] || { echo "missing artifact for $target"; exit 1; }
+            npmdir="npm/${MAP[$target]}"
+            if [ -f "$dir/${APP_NAME}.exe" ]; then
+              cp "$dir/${APP_NAME}.exe" "$npmdir/${APP_NAME}.exe"
+            else
+              cp "$dir/${APP_NAME}" "$npmdir/${APP_NAME}"
+              chmod +x "$npmdir/${APP_NAME}"
+            fi
+          done
+          ls -R npm
       - name: Publish to npm
-        # `napi pre-publish` publishes the per-platform optionalDependencies
-        # packages; then the main package is published. Auth is the .npmrc that
-        # setup-node wrote from NODE_AUTH_TOKEN.
+        # Publish every per-platform package first (they are the optional
+        # dependencies), then the main launcher package.
         run: |
           npm config set access public
-          bunx napi pre-publish -t npm
+          for dir in npm/*/; do
+            (cd "$dir" && npm publish --access public --provenance)
+          done
           npm publish --access public --provenance
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -4,11 +4,10 @@
   "cpu": [
     "x64"
   ],
-  "main": "remnem.linux-x64-gnu.node",
   "files": [
-    "remnem.linux-x64-gnu.node"
+    "remnem"
   ],
-  "description": "Find and delete every nested node_modules in a project as fast as possible (napi-rs / Rust)",
+  "description": "Find and delete every nested node_modules in a project as fast as possible (Rust binary)",
   "keywords": [
     "node_modules",
     "monorepo",
@@ -16,7 +15,6 @@
     "clean",
     "cleaner",
     "delete",
-    "napi-rs",
     "rust",
     "bun",
     "pnpm"

@@ -1,9 +1,9 @@
 /target
 /node_modules
-*.node
 
-# napi build outputs (generated)
-/index.js
-/index.d.ts
+# Compiled CLI binaries are placed into the per-platform npm packages by CI at
+# release time; never commit them.
+/npm/*/remnem
+/npm/*/remnem.exe
 
 .DS_Store
