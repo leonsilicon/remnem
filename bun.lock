@@ -8,14 +8,14 @@
         "@napi-rs/cli": "^3.0.0",
       },
       "optionalDependencies": {
-        "@leonsilicon/remnem-darwin-arm64": "0.1.6",
-        "@leonsilicon/remnem-darwin-x64": "0.1.6",
-        "@leonsilicon/remnem-linux-arm64-gnu": "0.1.6",
-        "@leonsilicon/remnem-linux-arm64-musl": "0.1.6",
-        "@leonsilicon/remnem-linux-x64-gnu": "0.1.6",
-        "@leonsilicon/remnem-linux-x64-musl": "0.1.6",
-        "@leonsilicon/remnem-win32-arm64-msvc": "0.1.6",
-        "@leonsilicon/remnem-win32-x64-msvc": "0.1.6",
+        "@leonsilicon/remnem-darwin-arm64": "0.1.7",
+        "@leonsilicon/remnem-darwin-x64": "0.1.7",
+        "@leonsilicon/remnem-linux-arm64-gnu": "0.1.7",
+        "@leonsilicon/remnem-linux-arm64-musl": "0.1.7",
+        "@leonsilicon/remnem-linux-x64-gnu": "0.1.7",
+        "@leonsilicon/remnem-linux-x64-musl": "0.1.7",
+        "@leonsilicon/remnem-win32-arm64-msvc": "0.1.7",
+        "@leonsilicon/remnem-win32-x64-msvc": "0.1.7",
       },
     },
   },
@@ -57,6 +57,22 @@
     "@inquirer/select": ["@inquirer/select@5.2.1", "", { "dependencies": { "@inquirer/ansi": "^2.0.7", "@inquirer/core": "^11.2.1", "@inquirer/figures": "^2.0.7", "@inquirer/type": "^4.0.7" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-FlDndEUww8m7BfukO2nJa25vhD+H5jxxCv4oGioKqzyWz3nPHhhw4LKdYRSlXuAx7DsdWia7iyaBPKKS95Evfw=="],
 
     "@inquirer/type": ["@inquirer/type@4.0.7", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-t28inv14nMQ1PhKpsJPY+kEs/c00qzeCOS2gTNRyTjG5d6qsVA2fItxW4hkvGZ5lvanGLdtCzVIx5dwdRpN1+g=="],
+
+    "@leonsilicon/remnem-darwin-arm64": ["@leonsilicon/remnem-darwin-arm64@0.1.7", "", { "os": "darwin", "cpu": "arm64" }, "sha512-76mFTE60Hpv9WeJ6hW9dNiMFkehIgpNP5KTaIjd6GeDoAoNSVxSPVYfue0DcAimmPIpVhDnuOnKzvNYGT6fVzg=="],
+
+    "@leonsilicon/remnem-darwin-x64": ["@leonsilicon/remnem-darwin-x64@0.1.7", "", { "os": "darwin", "cpu": "x64" }, "sha512-uEW0eVGcYbn5E8OYaacUF1Nchyka6euwLO7KAlU6FTJ/ZO5CZV5Hl6wwahjzrredInukO+WLcqldrVgeV3xong=="],
+
+    "@leonsilicon/remnem-linux-arm64-gnu": ["@leonsilicon/remnem-linux-arm64-gnu@0.1.7", "", { "os": "linux", "cpu": "arm64" }, "sha512-3zfEmfkuckkmmQi7XYiolrAWF4tmiU7h19XvWxZIfDtDTeCOC9mFDQaACDK5SlbfAr2q0uYSqzEiu1BD6dKlhw=="],
+
+    "@leonsilicon/remnem-linux-arm64-musl": ["@leonsilicon/remnem-linux-arm64-musl@0.1.7", "", { "os": "linux", "cpu": "arm64" }, "sha512-dg80oWLTg8ttu8P6dFlJMQ/4PjHyaj/dDN/FcpEdXhmcTP2qZWHpeA3dqNfZ97GEBI6H8XGRkG64o1Yac9IlzA=="],
+
+    "@leonsilicon/remnem-linux-x64-gnu": ["@leonsilicon/remnem-linux-x64-gnu@0.1.7", "", { "os": "linux", "cpu": "x64" }, "sha512-dJEJaec8clWd+ieDds5iULxDbUn2plCccOMQ8wPQ53QSGc5WoUsSkg2mMfLcljX1wOIgftoalN2Bj6TlfehF+A=="],
+
+    "@leonsilicon/remnem-linux-x64-musl": ["@leonsilicon/remnem-linux-x64-musl@0.1.7", "", { "os": "linux", "cpu": "x64" }, "sha512-bcJB54sbV4+g11ZI0bee4mE5QewCpB79MWgE0lSGbwjzjt2G3sTHh4YVNbqYZigHRbhrN9gq9R+Ug59SKoOTbA=="],
+
+    "@leonsilicon/remnem-win32-arm64-msvc": ["@leonsilicon/remnem-win32-arm64-msvc@0.1.7", "", { "os": "win32", "cpu": "arm64" }, "sha512-gQ4UsihwE+JO5jQpPBfuVUmCvWJlTyajlGrbxriQrRnT+BS0c3wlxD+VYQiBEgxM3cm9UINoFfkhBI4XqTFXIw=="],
+
+    "@leonsilicon/remnem-win32-x64-msvc": ["@leonsilicon/remnem-win32-x64-msvc@0.1.7", "", { "os": "win32", "cpu": "x64" }, "sha512-AzlL/696lYs6OAXR9teb0APYxpsVtFbbmr2B80dlPgaVNdrji3eio2WY5g1gETH2T4GagUVrAldQfpxERyq3Hw=="],
 
     "@napi-rs/cli": ["@napi-rs/cli@3.7.2", "", { "dependencies": { "@inquirer/prompts": "^8.5.2", "@napi-rs/cross-toolchain": "^1.0.3", "@napi-rs/wasm-tools": "^1.0.1", "@octokit/rest": "^22.0.1", "clipanion": "^4.0.0-rc.4", "colorette": "^2.0.20", "emnapi": "^1.11.1", "es-toolkit": "^1.47.0", "js-yaml": "^4.2.0", "obug": "^2.1.2", "semver": "^7.8.2", "typanion": "^3.14.0" }, "peerDependencies": { "@emnapi/runtime": "^1.7.1" }, "optionalPeers": ["@emnapi/runtime"], "bin": { "napi": "dist/cli.js", "napi-raw": "cli.mjs" } }, "sha512-shDW0Td/XZQpP04Yy+OsMt1ILMKGGkoLcy1zVAsSAK0fLfWm0Upgkmfs/NOV2ZhMQwkgpR3ZEdyHmTwgrUDQuA=="],
 
