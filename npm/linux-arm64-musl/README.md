@@ -1,3 +1,3 @@
-# `remnem-linux-arm64-musl`
+# `@leonsilicon/remnem-linux-arm64-musl`
 
-This is the **aarch64-unknown-linux-musl** binary for `remnem`
+This is the **aarch64-unknown-linux-musl** binary for `@leonsilicon/remnem`

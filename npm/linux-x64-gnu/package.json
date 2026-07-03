@@ -1,5 +1,5 @@
 {
-  "name": "remnem-linux-x64-gnu",
+  "name": "@leonsilicon/remnem-linux-x64-gnu",
   "version": "0.1.5",
   "cpu": [
     "x64"

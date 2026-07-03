@@ -1,3 +1,3 @@
-# `remnem-darwin-arm64`
+# `@leonsilicon/remnem-darwin-arm64`
 
-This is the **aarch64-apple-darwin** binary for `remnem`
+This is the **aarch64-apple-darwin** binary for `@leonsilicon/remnem`

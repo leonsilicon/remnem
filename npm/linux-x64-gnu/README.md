@@ -1,3 +1,3 @@
-# `remnem-linux-x64-gnu`
+# `@leonsilicon/remnem-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `remnem`
+This is the **x86_64-unknown-linux-gnu** binary for `@leonsilicon/remnem`

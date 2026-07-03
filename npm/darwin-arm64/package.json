@@ -1,5 +1,5 @@
 {
-  "name": "remnem-darwin-arm64",
+  "name": "@leonsilicon/remnem-darwin-arm64",
   "version": "0.1.5",
   "cpu": [
     "arm64"

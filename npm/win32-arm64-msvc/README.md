@@ -1,3 +1,3 @@
-# `remnem-win32-arm64-msvc`
+# `@leonsilicon/remnem-win32-arm64-msvc`
 
-This is the **aarch64-pc-windows-msvc** binary for `remnem`
+This is the **aarch64-pc-windows-msvc** binary for `@leonsilicon/remnem`

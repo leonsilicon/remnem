@@ -48,20 +48,21 @@
       "aarch64-unknown-linux-musl",
       "x86_64-pc-windows-msvc",
       "aarch64-pc-windows-msvc"
-    ]
+    ],
+    "packageName": "@leonsilicon/remnem"
   },
   "engines": {
     "node": ">= 18"
   },
   "optionalDependencies": {
-    "remnem-darwin-x64": "0.1.5",
-    "remnem-darwin-arm64": "0.1.5",
-    "remnem-linux-x64-gnu": "0.1.5",
-    "remnem-linux-arm64-gnu": "0.1.5",
-    "remnem-linux-x64-musl": "0.1.5",
-    "remnem-linux-arm64-musl": "0.1.5",
-    "remnem-win32-x64-msvc": "0.1.5",
-    "remnem-win32-arm64-msvc": "0.1.5"
+    "@leonsilicon/remnem-darwin-x64": "0.1.5",
+    "@leonsilicon/remnem-darwin-arm64": "0.1.5",
+    "@leonsilicon/remnem-linux-x64-gnu": "0.1.5",
+    "@leonsilicon/remnem-linux-arm64-gnu": "0.1.5",
+    "@leonsilicon/remnem-linux-x64-musl": "0.1.5",
+    "@leonsilicon/remnem-linux-arm64-musl": "0.1.5",
+    "@leonsilicon/remnem-win32-x64-msvc": "0.1.5",
+    "@leonsilicon/remnem-win32-arm64-msvc": "0.1.5"
   },
   "publishConfig": {
     "access": "public",

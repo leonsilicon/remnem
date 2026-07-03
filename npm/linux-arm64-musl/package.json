@@ -1,5 +1,5 @@
 {
-  "name": "remnem-linux-arm64-musl",
+  "name": "@leonsilicon/remnem-linux-arm64-musl",
   "version": "0.1.5",
   "cpu": [
     "arm64"
