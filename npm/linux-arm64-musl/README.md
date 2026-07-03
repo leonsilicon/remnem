@@ -1,3 +1,3 @@
-# `rmnm-linux-arm64-musl`
+# `@leonsilicon/rmnm-linux-arm64-musl`
 
-This is the **aarch64-unknown-linux-musl** binary for `rmnm`
+This is the **aarch64-unknown-linux-musl** binary for `@leonsilicon/rmnm`

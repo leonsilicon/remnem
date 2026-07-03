@@ -32,8 +32,8 @@ can't be renamed instantly, so those fall back to a direct delete.
 ## Install
 
 ```sh
-npm install -g rmnm
-# or: bun install -g rmnm
+npm install -g @leonsilicon/rmnm
+# or: bun install -g @leonsilicon/rmnm
 ```
 
 The right prebuilt native binary is pulled in automatically for your platform

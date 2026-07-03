@@ -1,5 +1,5 @@
 {
-  "name": "rmnm-linux-x64-gnu",
+  "name": "@leonsilicon/rmnm-linux-x64-gnu",
   "version": "0.1.3",
   "cpu": [
     "x64"
